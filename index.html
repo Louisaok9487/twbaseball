@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>棒球九宮格 — 台灣夜市攤位</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700;900&family=Noto+Sans+TC:wght@500;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+  html, body { margin: 0; height: 100%; overflow: hidden; overscroll-behavior: none; background: #120a06; font-family: 'Noto Sans TC', sans-serif; }
+  #stage { position: fixed; inset: 0; touch-action: none; }
+  .bar { position: fixed; left: 0; right: 0; z-index: 10; display: flex; justify-content: center; pointer-events: none; padding: 4px 6px; }
+  #topbar { top: 0; padding-top: max(4px, env(safe-area-inset-top)); }
+  #botbar { bottom: 0; padding-bottom: max(4px, env(safe-area-inset-bottom)); }
+  .panel { pointer-events: auto; width: 100%; max-width: 560px; background: rgba(120, 14, 10, .92); border: 2px solid #f5c542;
+    border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,.6); padding: 5px 6px; color: #ffe9a8; }
+  .row { display: flex; align-items: center; gap: 5px; flex-wrap: nowrap; }
+  .chip { background: #2a0805; border: 1px solid #f5c54288; border-radius: 8px; padding: 2px 7px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+  .chip b { color: #ffd84d; font-size: 15px; }
+  .grow { flex: 1; }
+  .btn { border: 0; cursor: pointer; font-family: inherit; font-weight: 900; border-radius: 9px; padding: 9px 6px; font-size: 14px; transition: transform .07s; }
+  .btn:active:not(:disabled) { transform: translateY(2px); }
+  .btn:disabled { opacity: .38; }
+  .b-red { background: linear-gradient(180deg, #ff5a4a, #c4140c); color: #fff; border: 2px solid #ffb3a8; box-shadow: 0 3px 0 #6a0806; }
+  .b-gold { background: linear-gradient(180deg, #ffe680, #f0b400); color: #5a1500; border: 2px solid #fff3b0; box-shadow: 0 3px 0 #9a6b00; }
+  .b-sub { background: #3a0c08; color: #ffe9a8; border: 1px solid #f5c54299; padding: 5px 8px; font-size: 13px; }
+  #hint { font-size: 12px; font-weight: 700; text-align: center; padding: 0 0 4px; color: #ffe9a8; }
+  #say { position: fixed; z-index: 12; left: 50%; transform: translateX(-50%); pointer-events: none; max-width: 92%;
+    background: #fffbe8; color: #3a1a08; border: 3px solid #c4140c; border-radius: 16px; padding: 6px 14px 6px 10px; font-weight: 900;
+    font-size: 15px; box-shadow: 0 4px 16px rgba(0,0,0,.5); opacity: 0; transition: opacity .2s; display: flex; gap: 8px; align-items: center; }
+  #say.show { opacity: 1; }
+  #say .who { background: #c4140c; color: #fff; border-radius: 8px; padding: 1px 6px; font-size: 12px; white-space: nowrap; }
+  #say small { display: block; font-size: 11px; color: #8a5a2a; font-weight: 700; }
+  #big { position: fixed; z-index: 13; left: 50%; top: 42%; transform: translate(-50%, -50%) scale(.8); pointer-events: none; opacity: 0;
+    transition: opacity .2s, transform .2s; text-align: center; font-family: 'Noto Serif TC', serif; font-weight: 900; color: #ffe14d;
+    font-size: 44px; text-shadow: 0 0 6px #c4140c, 0 3px 0 #6a0806, 0 0 24px rgba(255,120,0,.8); white-space: nowrap; }
+  #big small { display: block; font-size: 18px; color: #fff6d0; text-shadow: 0 2px 4px #000; }
+  #big.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  .modal { position: fixed; inset: 0; z-index: 30; background: rgba(0,0,0,.72); display: none; align-items: center; justify-content: center; padding: 16px; }
+  .modal .panel { max-width: 400px; text-align: center; padding: 14px; max-height: 88vh; overflow: auto; }
+  .modal h2 { margin: 2px 0 10px; font-family: 'Noto Serif TC', serif; font-size: 22px; color: #ffd84d; }
+  .rules { text-align: left; font-size: 13px; line-height: 1.65; margin: 0 0 12px; }
+  #shelf { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 12px; }
+  .card { background: #fff6d8; color: #5a1500; border-radius: 10px; padding: 8px 4px; border: 2px solid #f0b400; }
+  .card .e { font-size: 34px; line-height: 1.1; }
+  .card .n { font-size: 12px; font-weight: 900; }
+  .card .c { font-size: 11px; color: #a0522d; }
+  .card.lock { background: #3a1a10; color: #8a6a5a; border-color: #5a3020; }
+  .card.top { border-color: #c4140c; background: linear-gradient(180deg, #fff3b0, #ffd84d); }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+
+<div class="bar" id="topbar">
+  <div class="panel row">
+    <div class="chip">💰 <b id="ui-coin">300</b></div>
+    <div class="chip">⚾ <b id="ui-balls">0</b></div>
+    <div class="chip">連線 <b id="ui-lines">0</b></div>
+    <div class="grow"></div>
+    <button id="btn-shelf" class="btn b-sub">🎁 <span id="ui-shelf">0</span></button>
+    <button id="btn-rule" class="btn b-sub">？</button>
+    <button id="btn-view" class="btn b-sub">📷 <span id="ui-view">正面</span></button>
+    <button id="btn-sound" class="btn b-sub">🔊</button>
+  </div>
+</div>
+
+<div id="say"><span class="who">老闆</span><div><span id="say-text"></span><small id="say-sub"></small></div></div>
+<div id="big"></div>
+
+<div class="bar" id="botbar">
+  <div class="panel">
+    <div id="hint">按「$50 買十二顆球」開始</div>
+    <div class="row">
+      <button id="btn-buy" class="btn b-red grow">💰 $50 買十二顆球</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="m-rule">
+  <div class="panel">
+    <h2>棒球九宮格 玩法</h2>
+    <div class="rules">
+      ① 一局 <b>12 顆球</b>，把九宮格的板子打倒，<b>橫、直、斜連成一線</b>就有獎。<br>
+      ② 手指按住往上滑：<b>左右＝方向，上下＝高低</b>，放開就投。<br>
+      ③ 白色虛線和圓圈只是<b>參考</b>，球不一定會照走，球越快越容易偏。<br>
+      ④ <b>快速一甩</b>＝球速快；<b>慢慢滑再放手</b>＝普通球速。<br>
+      ⑤ 打中板子正中央，球速夠（72 km/h 以上）才會倒。打到邊邊只會晃，要很快的球才打得倒。<br>
+      ⑥ 只差一塊就連線時，那塊板子會<b>閃紅燈</b>。<br>
+      ⑦ 獎品：1 條線＝棒球帽，2 條線＝手套，3 條線以上＝簽名球，<b>全倒 9 塊＝全壘打獎盃</b>。<br>
+      只用遊戲代幣，沒有真錢。
+    </div>
+    <button class="btn b-gold" style="width:100%" data-close>知道了</button>
+  </div>
+</div>
+<div class="modal" id="m-shelf">
+  <div class="panel">
+    <h2>🎁 戰利品架</h2>
+    <div id="shelf"></div>
+    <div class="rules" style="text-align:center">最快球速紀錄：<b id="ui-best">0</b> km/h</div>
+    <button class="btn b-gold" style="width:100%" data-close>關閉</button>
+  </div>
+</div>
+
+<script>
+(function () {
+'use strict';
+const $ = id => document.getElementById(id);
+
+// @@PHYS_BEGIN
+const G_ACC = 10;
+const BALL_R = 0.2;
+const ORIGIN = { x: 0, y: 1.4, z: 5.0 };
+const ZB = -6.0;                  // 板面位置
+const NETZ = -7.1;                // 後方擋網（櫃內背板）
+const TABLE_TOP = 1.05, TABLE_Z = ZB + 0.3;
+const PITCH = 1.3, HALF = 0.46;   // 板子間距 / 半邊長
+const CY = 3.35;                  // 九宮格中心高度
+const FRAME_HX = PITCH * 1.5 + 0.35, FRAME_HY = PITCH * 1.5 + 0.35;
+const V_MIN = 17, V_MAX = 36, V_HOLD = 25, V_DOWN = 20, V_EDGE = 33;
+const KMH = 3.6;
+const plateX = c => (c - 1) * PITCH;
+const plateY = r => CY - (r - 1) * PITCH;
+const LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+const sigmaOf = v => 0.24 + (Math.max(V_MIN, v) - V_MIN) / (V_MAX - V_MIN) * 0.5;
+
+// 以速度 v 算出打到 (tx,ty) 的初速（速度不夠時，用最遠仰角，球會落在前面）
+function launchFor(v, tx, ty) {
+  const dx = tx - ORIGIN.x, dz = ZB - ORIGIN.z, D = Math.hypot(dx, dz), h = ty - ORIGIN.y;
+  const a = G_ACC * D * D / (2 * v * v);
+  const disc = D * D - 4 * a * (a + h);
+  let t;
+  if (disc >= 0) t = (D - Math.sqrt(disc)) / (2 * a); else t = D / (2 * a);
+  const th = Math.atan(t), c = Math.cos(th);
+  return { vx: v * c * dx / D, vy: v * Math.sin(th), vz: v * c * dz / D, reach: disc >= 0 };
+}
+function newBall(v, tx, ty, sigma) {
+  const e = () => { let u = 0; for (let i = 0; i < 4; i++) u += Math.random(); return (u - 2) * 1.2; };   // 近似常態
+  const L = launchFor(v, tx + e() * sigma, ty + e() * sigma);
+  return { x: ORIGIN.x, y: ORIGIN.y, z: ORIGIN.z, vx: L.vx, vy: L.vy, vz: L.vz, v, state: 'fly', passed: false, bounces: 0 };
+}
+// 一步：回傳 {ev:'plane', x, y, v} 當球越過板面
+function ballStep(B, dt) {
+  const sub = 8, h = dt / sub;
+  for (let s = 0; s < sub; s++) {
+    if (B.state === 'rest') return null;
+    const pz = B.z, px = B.x, py = B.y;
+    B.vy -= G_ACC * h;
+    B.x += B.vx * h; B.y += B.vy * h; B.z += B.vz * h;
+    if (!B.passed && pz > ZB && B.z <= ZB) {
+      const t = (pz - ZB) / (pz - B.z);
+      B.passed = true;
+      return { ev: 'plane', x: px + (B.x - px) * t, y: py + (B.y - py) * t, v: B.v };
+    }
+    if (!B.passed && B.z < TABLE_Z + BALL_R && B.y < TABLE_TOP + BALL_R * 0.5 && Math.abs(B.x) < FRAME_HX + 0.1) {
+      B.passed = true; B.z = TABLE_Z + BALL_R; B.vz = Math.abs(B.vz) * 0.3; B.vx *= 0.5; B.vy = Math.abs(B.vy) * 0.3;
+      return { ev: 'table', x: B.x, y: B.y, v: B.v };
+    }
+    if (B.z < NETZ + BALL_R) { B.z = NETZ + BALL_R; B.vz = Math.abs(B.vz) * 0.05; B.vx *= 0.3; }
+    if (B.y < BALL_R) {
+      B.y = BALL_R;
+      if (B.vy < -1.2) { B.vy = -B.vy * 0.42; B.vx *= 0.75; B.vz *= 0.75; B.bounces++; if (B.bounces === 1) { /* 地面彈跳 */ } }
+      else { B.vy = 0; B.vx *= 0.92; B.vz *= 0.92; if (Math.hypot(B.vx, B.vz) < 0.15) { B.state = 'rest'; B.vx = B.vz = 0; return { ev: 'rest' }; } }
+    }
+  }
+  return null;
+}
+// 判定球在板面 (x,y) 打到什麼
+function judge(fallen, x, y, v) {
+  let best = null;
+  for (let i = 0; i < 9; i++) {
+    if (fallen[i]) continue;
+    const r = Math.floor(i / 3), c = i % 3;
+    const dxo = Math.abs(x - plateX(c)), dyo = Math.abs(y - plateY(r));
+    const off = Math.max(dxo, dyo) / HALF;
+    if (dxo < HALF + 0.12 && dyo < HALF + 0.12 && (!best || off < best.off)) best = { i, off };
+  }
+  if (best) {
+    if (best.off <= 0.72) return v >= V_DOWN ? { kind: 'down', i: best.i, off: best.off } : { kind: 'weak', i: best.i, off: best.off };
+    if (best.off <= 1.0) return Math.random() < Math.max(0, Math.min(0.85, (v - 26) / 9)) ? { kind: 'down', i: best.i, off: best.off, edge: true } : { kind: 'edge', i: best.i, off: best.off };
+    return { kind: 'graze', i: best.i, off: best.off };
+  }
+  for (let i = 0; i < 9; i++) {
+    if (!fallen[i]) continue;
+    if (Math.abs(x - plateX(i % 3)) < HALF && Math.abs(y - plateY(Math.floor(i / 3))) < HALF) return { kind: 'hole', i };
+  }
+  if (Math.abs(x) < FRAME_HX && Math.abs(y - CY) < FRAME_HY) return { kind: 'frame' };
+  return { kind: 'net' };
+}
+function countLines(fallen) { return LINES.filter(l => l.every(i => fallen[i])).length; }
+// @@PHYS_END
+
+
+/* =========================================================
+ * 2) 獎品
+ * ========================================================= */
+const PRIZES = [
+  { id: 'sticker', n: '棒球貼紙', e: '🏷️', coin: 5,    need: '0 條線' },
+  { id: 'cap',     n: '棒球帽',   e: '🧢', coin: 60,   need: '1 條線' },
+  { id: 'glove',   n: '棒球手套', e: '🧤', coin: 150,  need: '2 條線' },
+  { id: 'ball',    n: '簽名球',   e: '⚾', coin: 400,  need: '3 條線以上' },
+  { id: 'trophy',  n: '全壘打獎盃', e: '🏆', coin: 1500, need: '全倒 9 塊', top: true }
+];
+const store = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch (e) { return d; } };
+const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+const shelf = store('bbShelf', {});
+let bestKmh = store('bbBest', 0);
+
+/* =========================================================
+ * 3) 音效 ＋ 觀眾 ＋ 老闆
+ * ========================================================= */
+const SND = {
+  ctx: null, on: true, amb: null, nbuf: null,
+  init() {
+    if (!this.ctx) { const C = window.AudioContext || window.webkitAudioContext; if (C) this.ctx = new C(); }
+    if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+    if (this.ctx && !this.amb) this.ambience();
+  },
+  noiseBuf() {
+    if (this.nbuf) return this.nbuf;
+    const n = this.ctx.sampleRate * 2, b = this.ctx.createBuffer(1, n, this.ctx.sampleRate), a = b.getChannelData(0);
+    for (let i = 0; i < n; i++) a[i] = Math.random() * 2 - 1;
+    return (this.nbuf = b);
+  },
+  tone(f, d, type, v, delay, f2) {
+    if (!this.on || !this.ctx) return;
+    const t = this.ctx.currentTime + (delay || 0), o = this.ctx.createOscillator(), g = this.ctx.createGain();
+    o.type = type || 'sine'; o.frequency.setValueAtTime(f, t); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + d);
+    g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.0008, t + d);
+    o.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t + d + 0.02);
+  },
+  burst(d, freq, q, v, delay, type) {
+    if (!this.on || !this.ctx) return;
+    const t = this.ctx.currentTime + (delay || 0);
+    const s = this.ctx.createBufferSource(); s.buffer = this.noiseBuf(); s.loopStart = Math.random(); s.loop = true;
+    const f = this.ctx.createBiquadFilter(); f.type = type || 'bandpass'; f.frequency.value = freq; f.Q.value = q || 1;
+    const g = this.ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + Math.min(0.02, d / 4)); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+    s.connect(f); f.connect(g); g.connect(this.ctx.destination); s.start(t, Math.random()); s.stop(t + d + 0.05);
+  },
+  throwSnd() { this.burst(0.28, 1100, 0.9, 0.22); },
+  pop() { this.burst(0.07, 420, 2, 0.5); this.tone(180, 0.08, 'triangle', 0.25, 0, 90); },          // 手套/板子「啪」
+  plate() { this.burst(0.08, 900, 1.5, 0.45); this.burst(0.18, 260, 1.2, 0.35, 0.03); this.tone(120, 0.2, 'triangle', 0.2); },
+  wood() { this.tone(260 + Math.random() * 60, 0.09, 'square', 0.12); this.burst(0.05, 1800, 2, 0.25); },
+  thud() { this.burst(0.1, 300, 1, 0.3); },
+  speed() { this.tone(900, 0.06, 'square', 0.07); this.tone(1350, 0.09, 'square', 0.07, 0.07); },
+  crowd(level) {      // 觀眾歡呼＋拍手
+    const L = Math.max(1, Math.min(3, level));
+    this.burst(0.9 + L * 0.6, 1300 + L * 150, 0.5, 0.05 + L * 0.05);
+    this.burst(0.7 + L * 0.5, 2600, 0.7, 0.03 + L * 0.03, 0.05);
+    for (let i = 0; i < 5 + L * 5; i++) this.burst(0.05, 2200 + Math.random() * 1800, 1.5, 0.13, 0.15 + i * (0.07 + Math.random() * 0.05));
+  },
+  ooh() { this.tone(520, 0.45, 'triangle', 0.07, 0, 300); this.burst(0.5, 900, 0.5, 0.04); },
+  coin() { this.tone(1800, 0.05, 'square', 0.06); this.tone(2400, 0.08, 'square', 0.06, 0.05); },
+  line() { [784, 988, 1175, 1568].forEach((f, i) => this.tone(f, 0.16, 'square', 0.09, i * 0.09)); },
+  ting() { for (let i = 0; i < 3; i++) { this.tone(1320, 0.08, 'square', 0.08, i * 0.16); this.tone(990, 0.08, 'square', 0.08, i * 0.16 + 0.08); } },
+  win() { [[523, .12], [659, .12], [784, .12], [1047, .18], [784, .1], [1047, .35]].reduce((o, [f, d]) => { this.tone(f, d, 'square', 0.1, o); return o + d * 0.9; }, 0); },
+  ambience() {
+    const len = 2 * this.ctx.sampleRate, buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate), d = buf.getChannelData(0);
+    let last = 0; for (let i = 0; i < len; i++) { last = (last + 0.02 * (Math.random() * 2 - 1)) / 1.02; d[i] = last * 3.2; }
+    const src = this.ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+    const bp = this.ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 600; bp.Q.value = 0.6;
+    const g = this.ctx.createGain(); g.gain.value = this.on ? 0.045 : 0;
+    src.connect(bp); bp.connect(g); g.connect(this.ctx.destination); src.start(); this.amb = g;
+  },
+  setOn(v) { this.on = v; if (this.amb) this.amb.gain.value = v ? 0.045 : 0; if (!v && window.speechSynthesis) speechSynthesis.cancel(); }
+};
+let bossVoice = null;
+function pickVoice() {
+  if (!window.speechSynthesis) return;
+  const vs = speechSynthesis.getVoices();
+  bossVoice = vs.find(v => /^nan/i.test(v.lang)) || vs.find(v => /zh[-_]TW/i.test(v.lang)) || vs.find(v => /^zh/i.test(v.lang)) || null;
+}
+if (window.speechSynthesis) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+let sayT = null;
+function boss(tw, zh, ms) {
+  $('say-text').textContent = tw; $('say-sub').textContent = zh || '';
+  const s = $('say'); s.style.top = ($('topbar').offsetHeight + 6) + 'px'; s.classList.add('show');
+  clearTimeout(sayT); sayT = setTimeout(() => s.classList.remove('show'), ms || 2200);
+  if (SND.on && window.speechSynthesis) {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(tw.replace(/[～~！!]/g, '，'));
+    if (bossVoice) { u.voice = bossVoice; u.lang = bossVoice.lang; } else u.lang = 'zh-TW';
+    u.rate = 1.15; u.pitch = 0.8; speechSynthesis.speak(u);
+  }
+}
+const TALK = {
+  welcome: ['來喔來喔！棒球九宮格，五十箍十二粒！', '來喔來喔！棒球九宮格，五十元十二顆！'],
+  start: ['球提好，連成一線就有獎！', '球拿好，連成一線就有獎！'],
+  down: ['好球！拍倒矣！', '好球！打倒了！'],
+  fast: ['這粒有夠緊！', '這球好快！'],
+  weak: ['傷慢矣，拍袂倒啦！', '太慢了，打不倒啦！'],
+  edge: ['拍著邊仔，差一屑仔！', '打到邊邊，只差一點點！'],
+  frame: ['拍著框仔矣！', '打到木框了！'],
+  miss: ['歪去矣～', '歪掉了～'],
+  short: ['無夠力，落地矣！', '沒力氣，落地了！'],
+  ting: ['欲連線矣！紅色彼塊！', '快連線了！紅色那塊！'],
+  line: ['連線矣！恭喜！', '連線了！恭喜！'],
+  jackpot: ['夭壽喔！全壘打！九塊攏倒！', '天啊！全壘打！九塊全倒！'],
+  end: ['球攏拍完矣，閣一擺無？', '球都打完了，再來一次嗎？'],
+  broke: ['無錢矣？頭家請你，閣送三百！', '沒錢了？老闆請客，再送三百！']
+};
+const talk = (k, ms) => boss(TALK[k][0], TALK[k][1], ms);
+let bigT = null;
+function big(main, sub, ms) {
+  const b = $('big'); b.innerHTML = main + (sub ? `<small>${sub}</small>` : '');
+  b.classList.add('show'); clearTimeout(bigT); bigT = setTimeout(() => b.classList.remove('show'), ms || 1500);
+}
+
+/* =========================================================
+ * 4) 貼圖
+ * ========================================================= */
+const SERIF = '"Noto Serif TC", "Noto Sans TC", serif';
+function mkCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+function texOf(c) { const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.anisotropy = 8; return t; }
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+function plateTex(n, red) {
+  const c = mkCanvas(256, 256), x = c.getContext('2d');
+  x.fillStyle = red ? '#d8211a' : '#fffaf0'; x.fillRect(0, 0, 256, 256);
+  x.strokeStyle = red ? '#ffd84d' : '#d8211a'; x.lineWidth = 14; x.strokeRect(10, 10, 236, 236);
+  x.lineWidth = 4; x.strokeRect(28, 28, 200, 200);
+  x.fillStyle = red ? '#fffaf0' : '#d8211a'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.font = `900 170px ${SERIF}`; x.shadowColor = 'rgba(0,0,0,.3)'; x.shadowOffsetY = 6; x.shadowBlur = 4; x.fillText(String(n), 128, 140);
+  return texOf(c);
+}
+function ballTex() {
+  const c = mkCanvas(256, 128), x = c.getContext('2d');
+  x.fillStyle = '#fbf6ea'; x.fillRect(0, 0, 256, 128);
+  x.strokeStyle = '#c8161d'; x.lineWidth = 3;
+  [64, 192].forEach(cx => {
+    x.beginPath(); x.arc(cx - 70, 64, 52, -0.9, 0.9); x.stroke(); x.beginPath(); x.arc(cx + 70, 64, 52, Math.PI - 0.9, Math.PI + 0.9); x.stroke();
+    for (let k = -4; k <= 4; k++) { const a = k * 0.2; [[cx - 70 + Math.cos(a) * 52, 64 + Math.sin(a) * 52, 1], [cx + 70 - Math.cos(a) * 52, 64 + Math.sin(a) * 52, -1]].forEach(([px, py, s]) => { x.beginPath(); x.moveTo(px, py - 5); x.lineTo(px + s * 9, py + 5); x.stroke(); }); }
+  });
+  return texOf(c);
+}
+function bannerTex() {
+  const c = mkCanvas(1200, 230), x = c.getContext('2d');
+  const g = x.createLinearGradient(0, 0, 0, 230); g.addColorStop(0, '#e0261c'); g.addColorStop(1, '#a8100c');
+  x.fillStyle = g; x.fillRect(0, 0, 1200, 230);
+  x.strokeStyle = '#ffd24d'; x.lineWidth = 8; x.strokeRect(14, 14, 1172, 202);
+  x.textAlign = 'center'; x.textBaseline = 'middle'; x.shadowColor = 'rgba(0,0,0,.5)'; x.shadowOffsetY = 5; x.shadowBlur = 4;
+  x.fillStyle = '#ffe14d'; x.font = `900 124px ${SERIF}`; x.fillText('棒球九宮格', 520, 118);
+  x.shadowBlur = 0; x.shadowOffsetY = 0;
+  x.fillStyle = '#fff6d0'; roundRect(x, 930, 38, 230, 154, 16); x.fill();
+  x.fillStyle = '#b8100c'; x.font = `900 46px ${SERIF}`; x.fillText('$50', 1045, 86); x.font = `900 36px ${SERIF}`; x.fillText('十二顆球', 1045, 142);
+  x.font = '60px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif'; x.fillText('⚾', 90, 118);
+  return texOf(c);
+}
+const ledCanvas = mkCanvas(768, 256), ledTex = texOf(ledCanvas);
+function drawLED(kmh, best) {
+  const x = ledCanvas.getContext('2d');
+  x.fillStyle = '#0a0302'; x.fillRect(0, 0, 768, 256);
+  x.strokeStyle = '#7a2a12'; x.lineWidth = 10; x.strokeRect(5, 5, 758, 246);
+  x.textAlign = 'left'; x.fillStyle = '#ffd24d'; x.font = `900 36px ${SERIF}`; x.fillText('球速 SPEED', 34, 56);
+  x.textAlign = 'right'; x.fillStyle = '#ff2a1a'; x.shadowColor = '#ff2a1a'; x.shadowBlur = 18;
+  x.font = '900 130px "Share Tech Mono", monospace'; x.fillText(String(kmh).padStart(3, ' '), 560, 190);
+  x.shadowBlur = 0; x.fillStyle = '#ffd24d'; x.font = `900 38px ${SERIF}`; x.fillText('km/h', 730, 186);
+  x.font = `700 28px ${SERIF}`; x.fillStyle = '#9bffb0'; x.textAlign = 'right'; x.fillText('最快 ' + best, 730, 56);
+  ledTex.needsUpdate = true;
+}
+function floorTex() {
+  const c = mkCanvas(256, 256), x = c.getContext('2d');
+  x.fillStyle = '#5a4a40'; x.fillRect(0, 0, 256, 256);
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) { x.fillStyle = (i + j) % 2 ? '#6a584c' : '#4e4038'; x.fillRect(i * 64 + 2, j * 64 + 2, 60, 60); }
+  const t = texOf(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(10, 10); return t;
+}
+function netTex() {
+  const c = mkCanvas(128, 128), x = c.getContext('2d');
+  x.fillStyle = '#0d2a18'; x.fillRect(0, 0, 128, 128);
+  x.strokeStyle = '#2f7a46'; x.lineWidth = 3;
+  for (let i = -128; i < 256; i += 32) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i + 128, 128); x.stroke(); x.beginPath(); x.moveTo(i + 128, 0); x.lineTo(i, 128); x.stroke(); }
+  const t = texOf(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(8, 8); return t;
+}
+function stripeTex() {
+  const c = mkCanvas(256, 64), x = c.getContext('2d');
+  for (let i = 0; i < 8; i++) { x.fillStyle = i % 2 ? '#ffffff' : '#d8211a'; x.fillRect(i * 32, 0, 32, 64); }
+  const t = texOf(c); t.wrapS = THREE.RepeatWrapping; t.repeat.set(4, 1); return t;
+}
+function glowTex() {
+  const c = mkCanvas(64, 64), x = c.getContext('2d'), g = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+  g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.3, 'rgba(255,210,140,.7)'); g.addColorStop(1, 'rgba(255,140,40,0)');
+  x.fillStyle = g; x.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c);
+}
+
+/* =========================================================
+ * 5) 場景
+ * ========================================================= */
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+$('stage').appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x140b07);
+scene.fog = new THREE.Fog(0x140b07, 34, 80);
+(() => {
+  const env = new THREE.Scene();
+  env.add(new THREE.Mesh(new THREE.BoxGeometry(40, 40, 40), new THREE.MeshBasicMaterial({ color: 0x3a2516, side: THREE.BackSide })));
+  const lamp = (w, h, x, y, z, c) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: c, side: THREE.DoubleSide })); m.position.set(x, y, z); m.lookAt(0, 0, 0); env.add(m); };
+  lamp(20, 5, 0, 18, 0, 0xfff0d0); lamp(12, 4, -16, 6, 8, 0xffb070); lamp(12, 4, 16, 6, 8, 0xffb070); lamp(20, 6, 0, 4, 18, 0xffe8c8);
+  scene.environment = new THREE.PMREMGenerator(renderer).fromScene(env, 0.03).texture;
+})();
+scene.add(new THREE.HemisphereLight(0xffe8c8, 0x2a1408, 0.6));
+const key = new THREE.DirectionalLight(0xfff0d6, 1.05);
+key.position.set(3, 14, 9); key.castShadow = true; key.shadow.mapSize.set(2048, 2048);
+Object.assign(key.shadow.camera, { left: -8, right: 8, top: 9, bottom: -9, near: 1, far: 45 }); key.shadow.bias = -0.0006;
+scene.add(key);
+const spot = new THREE.PointLight(0xffe0b0, 0.9, 16); spot.position.set(0, 6.4, ZB + 3); scene.add(spot);
+
+const camera = new THREE.PerspectiveCamera(34, window.innerWidth / window.innerHeight, 0.1, 200);
+
+const M = {
+  red: new THREE.MeshStandardMaterial({ color: 0xc81a14, roughness: 0.85 }),
+  gold: new THREE.MeshStandardMaterial({ color: 0xe0b44a, metalness: 1, roughness: 0.3 }),
+  steel: new THREE.MeshStandardMaterial({ color: 0xcfd6dc, metalness: 1, roughness: 0.3 }),
+  wood: new THREE.MeshStandardMaterial({ color: 0x8a4a1e, roughness: 0.55 }),
+  woodLight: new THREE.MeshStandardMaterial({ color: 0xb87a40, roughness: 0.6 }),
+  white: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6 }),
+  dark: new THREE.MeshStandardMaterial({ color: 0x1a0f08, roughness: 0.9 }),
+  ball: new THREE.MeshStandardMaterial({ map: ballTex(), roughness: 0.45 })
+};
+const GLOW = glowTex();
+const lightBulbs = [], plates = [], lineBars = [], people = [];
+const sideMat = new THREE.MeshStandardMaterial({ color: 0xe8d5a0, roughness: 0.6 });
+
+function plateRowCol(i) { return [Math.floor(i / 3), i % 3]; }
+
+function buildBooth() {
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(70, 70), new THREE.MeshStandardMaterial({ map: floorTex(), roughness: 1 }));
+  ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+
+  // 後方擋網（全寬）
+  const netBack = new THREE.Mesh(new THREE.PlaneGeometry(14, 9), new THREE.MeshStandardMaterial({ map: netTex(), roughness: 1 }));
+  netBack.position.set(0, 4.5, NETZ - 0.01); scene.add(netBack);
+  const wallBack = new THREE.Mesh(new THREE.PlaneGeometry(14, 9), new THREE.MeshStandardMaterial({ map: stripeTex(), roughness: 0.9 }));
+  wallBack.position.set(0, 4.5, NETZ - 0.9); scene.add(wallBack);
+
+  // 櫃子：下方桌子 + 九宮格木框
+  const fw = FRAME_HX * 2, bottomY = CY - FRAME_HY, topY = CY + FRAME_HY;
+  const table = new THREE.Mesh(new THREE.BoxGeometry(fw + 0.3, TABLE_TOP, 1.5), M.red);
+  table.position.set(0, TABLE_TOP / 2, ZB - 0.45); table.castShadow = true; table.receiveShadow = true; scene.add(table);
+  const trim = new THREE.Mesh(new THREE.BoxGeometry(fw + 0.36, 0.08, 1.56), M.gold); trim.position.set(0, TABLE_TOP, ZB - 0.45); scene.add(trim);
+  // 外框板（形成凹槽）
+  const depth = ZB + 0.2 - NETZ;
+  [[0, topY + 0.06, fw + 0.3, 0.12], [0, bottomY - 0.06, fw + 0.3, 0.12]].forEach(([x, y, w, h]) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, depth), M.wood); m.position.set(x, y, (ZB + 0.2 + NETZ) / 2); m.castShadow = true; scene.add(m); });
+  [-1, 1].forEach(sd => { const m = new THREE.Mesh(new THREE.BoxGeometry(0.12, topY - bottomY + 0.24, depth), M.wood); m.position.set(sd * (FRAME_HX + 0.06), CY, (ZB + 0.2 + NETZ) / 2); m.castShadow = true; scene.add(m); });
+  // 內部背板
+  const inner = new THREE.Mesh(new THREE.PlaneGeometry(fw, FRAME_HY * 2), new THREE.MeshStandardMaterial({ map: netTex(), roughness: 1 }));
+  inner.position.set(0, CY, NETZ + 0.02); scene.add(inner);
+  // 木格條
+  const barT = 0.2;
+  [-1, 1].forEach(sd => {
+    const v = new THREE.Mesh(new THREE.BoxGeometry(barT, FRAME_HY * 2, 0.2), M.woodLight); v.position.set(sd * PITCH / 2, CY, ZB + 0.1); scene.add(v);
+    const hz = new THREE.Mesh(new THREE.BoxGeometry(fw, barT, 0.2), M.woodLight); hz.position.set(0, CY + sd * PITCH / 2, ZB + 0.1); scene.add(hz);
+  });
+  [[-1, 1].map(sd => [sd * (FRAME_HX - 0.12), CY, 0.24, FRAME_HY * 2]), [-1, 1].map(sd => [0, CY + sd * (FRAME_HY - 0.12), fw, 0.24])].flat().forEach(([x, y, w, h]) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.24), M.woodLight); m.position.set(x, y, ZB + 0.12); m.castShadow = true; scene.add(m);
+  });
+
+  // 九塊板（以底邊為轉軸，往後倒）
+  for (let i = 0; i < 9; i++) {
+    const [r, c] = plateRowCol(i);
+    const faceMat = new THREE.MeshStandardMaterial({ map: plateTex(i + 1, (r + c) % 2 === 0), roughness: 0.4, emissive: 0x000000 });
+    const mats = [sideMat, sideMat, sideMat, sideMat, faceMat, new THREE.MeshStandardMaterial({ color: 0xd9c690 })];
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(HALF * 2, HALF * 2, 0.1), mats);
+    mesh.position.y = HALF; mesh.castShadow = true;
+    const pivot = new THREE.Group(); pivot.position.set(plateX(c), plateY(r) - HALF, ZB + 0.05); pivot.add(mesh); scene.add(pivot);
+    plates.push({ pivot, mesh, faceMat, anim: null, t: 0, rot: 0 });
+  }
+  // 連線光條
+  LINES.forEach(l => {
+    const [a, b] = [l[0], l[2]];
+    const [ra, ca] = plateRowCol(a), [rb, cb] = plateRowCol(b);
+    const x1 = plateX(ca), y1 = plateY(ra), x2 = plateX(cb), y2 = plateY(rb);
+    const len = Math.hypot(x2 - x1, y2 - y1) + 1.3;
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(len, 0.22), new THREE.MeshBasicMaterial({ color: 0xffd200, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
+    m.position.set((x1 + x2) / 2, (y1 + y2) / 2, ZB + 0.28); m.rotation.z = Math.atan2(y2 - y1, x2 - x1); m.visible = false; scene.add(m);
+    lineBars.push(m);
+  });
+
+  // LED 測速板
+  const led = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.87), new THREE.MeshBasicMaterial({ map: ledTex }));
+  led.position.set(0, 0.58, ZB + 0.33); scene.add(led);
+  const ledFrame = new THREE.Mesh(new THREE.BoxGeometry(2.8, 1.0, 0.08), M.steel); ledFrame.position.set(0, 0.58, ZB + 0.3); scene.add(ledFrame);
+
+  // 紅布棚：立柱 + 招牌 + 燈泡
+  const bannerY = topY + 1.0;
+  const banner = new THREE.Mesh(new THREE.BoxGeometry(FRAME_HX * 2 + 0.9, 1.3, 0.12), [M.red, M.red, M.red, M.red, new THREE.MeshStandardMaterial({ map: bannerTex(), roughness: 0.75 }), M.red]);
+  banner.position.set(0, bannerY, ZB + 0.55); scene.add(banner);
+  [-1, 1].forEach(sd => {
+    const p = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, bannerY + 0.9, 12), M.steel); p.position.set(sd * (FRAME_HX + 0.55), (bannerY + 0.9) / 2, ZB + 0.55); scene.add(p);
+  });
+  for (let i = 0; i < 13; i++) {
+    const t = i / 12, x = -(FRAME_HX + 0.4) + t * (FRAME_HX + 0.4) * 2, y = bannerY + 0.9 - Math.sin(t * Math.PI * 3) ** 2 * 0.3;
+    const col = [0xffd24d, 0xff5a3a, 0x7ad8ff, 0x8aff8a, 0xff8ad8][i % 5];
+    const b = new THREE.Mesh(new THREE.SphereGeometry(0.11, 12, 10), new THREE.MeshBasicMaterial({ color: col })); b.position.set(x, y, ZB + 0.7); scene.add(b);
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color: col, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+    sp.scale.set(0.9, 0.9, 1); sp.position.copy(b.position); scene.add(sp); lightBulbs.push({ sp, ph: Math.random() * 6 });
+  }
+
+  // 投球線 + 球籃
+  const tape = new THREE.Mesh(new THREE.PlaneGeometry(7, 0.18), M.white);
+  tape.rotation.x = -Math.PI / 2; tape.position.set(0, 0.01, ORIGIN.z + 0.5); scene.add(tape);
+  const basket = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.42, 0.5, 20, 1, true), new THREE.MeshStandardMaterial({ color: 0xd8211a, roughness: 0.6, side: THREE.DoubleSide }));
+  basket.position.set(2.5, 0.25, ORIGIN.z - 0.1); scene.add(basket);
+  for (let i = 0; i < 9; i++) { const b = new THREE.Mesh(new THREE.SphereGeometry(BALL_R, 14, 10), M.ball); b.position.set(2.5 + Math.cos(i * 2.1) * 0.25 * (i % 3 ? 1 : 0.3), 0.45 + (i > 5 ? 0.25 : 0), ORIGIN.z - 0.1 + Math.sin(i * 2.1) * 0.25); scene.add(b); }
+
+  // 觀眾
+  [[-3.5, -3.2, 0xff8a1a, 1.0], [-3.8, -1.6, 0x2f80ff, 1.15], [-3.6, 0.4, 0x22c55e, 1.2],
+   [3.5, -3.2, 0xe03a6a, 1.05], [3.8, -1.4, 0xffcc00, 1.15], [3.6, 0.6, 0x9a5af0, 1.2]].forEach(([x, z, col, s]) => people.push(makePerson(x, z, col, s)));
+}
+
+function makePerson(x, z, col, s) {
+  const g = new THREE.Group(); g.position.set(x, 0, z); g.scale.setScalar(s); g.rotation.y = x < 0 ? 0.5 : -0.5;
+  const mat = new THREE.MeshStandardMaterial({ color: col, roughness: 0.7 });
+  const skin = new THREE.MeshStandardMaterial({ color: 0xffd8b0, roughness: 0.7 });
+  const legs = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.28, 0.8, 12), new THREE.MeshStandardMaterial({ color: 0x2a3a5a, roughness: 0.8 })); legs.position.y = 0.4; g.add(legs);
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.27, 0.75, 14), mat); body.position.y = 1.15; body.castShadow = true; g.add(body);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.24, 16, 12), skin); head.position.y = 1.78; head.castShadow = true; g.add(head);
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.255, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), M.red); cap.position.y = 1.82; g.add(cap);
+  const brim = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.03, 0.22), M.red); brim.position.set(0, 1.8, 0.28); g.add(brim);
+  const arms = [-1, 1].map(sd => {
+    const p = new THREE.Group(); p.position.set(sd * 0.34, 1.45, 0);
+    const a = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.62, 8), skin); a.position.y = -0.31; p.add(a); g.add(p); return p;
+  });
+  scene.add(g);
+  return { g, arms, base: g.position.y, jump: 0, ph: Math.random() * 6 };
+}
+
+/* =========================================================
+ * 6) 遊戲流程
+ * ========================================================= */
+const GS = { phase: 'IDLE', coin: 300, balls: 0, fallen: Array(9).fill(false), lineSet: new Set(), tingShown: false, maxDown: 0 };
+let current = null, timeScale = 1, cheerT = 0, cheerLv = 0, lastKmh = 0;
+
+function refresh() {
+  $('ui-coin').textContent = GS.coin;
+  $('ui-balls').textContent = GS.balls;
+  $('ui-lines').textContent = GS.lineSet.size;
+  $('ui-shelf').textContent = Object.values(shelf).reduce((s, v) => s + v, 0);
+  $('btn-buy').style.display = GS.phase === 'IDLE' ? '' : 'none';
+  const H = {
+    IDLE: GS.balls === 0 && GS.fallen.some(Boolean) ? '本局結束，按下面再玩一局' : '按「$50 買十二顆球」開始',
+    READY: '往上滑：左右＝方向、上下＝高低。快速一甩＝快球（虛線僅供參考）',
+    FLY: '球飛行中…', RESULT: ''
+  };
+  $('hint').textContent = H[GS.phase] || '';
+}
+
+function resetPlates() {
+  plates.forEach((p, i) => { if (GS.fallen[i] || p.rot !== 0) { p.anim = 'rise'; p.t = 0; p.from = p.rot; } p.faceMat.emissive.setHex(0); });
+  lineBars.forEach(b => b.visible = false);
+  GS.fallen = Array(9).fill(false); GS.lineSet = new Set(); GS.tingShown = false;
+}
+
+function buy() {
+  SND.init();
+  if (GS.phase !== 'IDLE') return;
+  if (GS.coin < 50) { GS.coin += 300; talk('broke'); refresh(); return; }
+  GS.coin -= 50; SND.coin();
+  resetPlates(); GS.balls = 12; GS.phase = 'READY';
+  talk('start'); refresh();
+}
+
+function cheer(level) { SND.crowd(level); cheerT = 1.0 + level * 0.5; cheerLv = level; }
+function tingCells() {
+  const s = new Set();
+  LINES.forEach(l => { const miss = l.filter(i => !GS.fallen[i]); if (miss.length === 1 && l.filter(i => GS.fallen[i]).length === 2) s.add(miss[0]); });
+  return s;
+}
+
+function throwBall(tx, ty, v) {
+  if (GS.phase !== 'READY' || GS.balls <= 0) return;
+  GS.balls--; GS.phase = 'FLY';
+  const B = newBall(v, tx, ty, sigmaOf(v));
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(BALL_R, 20, 16), M.ball); mesh.castShadow = true; scene.add(mesh);
+  current = { B, mesh, spin: new THREE.Vector3(-14 - v * 0.4, (Math.random() - 0.5) * 4, (Math.random() - 0.5) * 6), res: null, tRes: 0, v };
+  SND.throwSnd();
+  lastKmh = Math.round(v * KMH); drawLED(lastKmh, Math.max(bestKmh, lastKmh));
+  if (lastKmh > bestKmh) { bestKmh = lastKmh; save('bbBest', bestKmh); }
+  SND.speed();
+  refresh();
+}
+
+function resolveBall(res, B, planeEv) {
+  const c = current; c.res = res.kind; c.tRes = 0; timeScale = 1;
+  const k = res.kind;
+  if (k === 'down') {
+    const p = plates[res.i]; p.anim = 'fall'; p.t = 0; GS.fallen[res.i] = true;
+    B.z = ZB + 0.25; B.vz = 1.5; B.vx *= 0.3; B.vy = 1.0;
+    SND.plate();
+    const n = GS.fallen.filter(Boolean).length;
+    const newLines = LINES.map((l, idx) => [l, idx]).filter(([l, idx]) => l.every(i => GS.fallen[i]) && !GS.lineSet.has(idx));
+    newLines.forEach(([l, idx]) => { GS.lineSet.add(idx); lineBars[idx].visible = true; });
+    if (n === 9) { setTimeout(() => { SND.win(); cheer(3); big('全壘打！', '九塊全倒 🏆', 2400); talk('jackpot', 2800); }, 350); }
+    else if (newLines.length) { setTimeout(() => { SND.line(); cheer(2); big('連線！', `已連 ${GS.lineSet.size} 條`, 1700); talk('line', 1800); }, 350); }
+    else {
+      cheer(1);
+      if (res.edge || c.v >= 31) talk('fast', 1200); else if (Math.random() < 0.5) talk('down', 1200);
+      const t = tingCells();
+      if (t.size && !GS.tingShown) { GS.tingShown = true; setTimeout(() => { SND.ting(); talk('ting', 2200); }, 900); }
+    }
+  } else {
+    // 彈回
+    if (k === 'weak' || k === 'edge' || k === 'graze' || k === 'frame' || k === 'table') {
+      if (k !== 'table') { B.z = ZB + 0.25; B.vz = Math.abs(B.vz) * 0.35 + 1.0; B.vx *= 0.5; B.vy = Math.abs(B.vy) * 0.3; }
+      if (k === 'weak') { plates[res.i].anim = 'wobble'; plates[res.i].t = 0; talk('weak', 1800); SND.pop(); }
+      else if (k === 'edge') { plates[res.i].anim = 'wobble'; plates[res.i].t = 0; talk('edge', 1800); SND.pop(); SND.ooh(); }
+      else if (k === 'graze') { plates[res.i].anim = 'wobble'; plates[res.i].t = 0; SND.pop(); if (Math.random() < 0.5) talk('miss', 1200); }
+      else if (k === 'frame') { SND.wood(); talk('frame', 1400); }
+      else if (k === 'table') { SND.wood(); talk('short', 1400); }
+    } else if (k === 'hole' || k === 'net') { SND.thud(); if (Math.random() < 0.6) talk('miss', 1200); SND.ooh(); }
+    else if (k === 'short') { talk('short', 1400); }
+  }
+  refresh();
+}
+
+function finishBall() {
+  const c = current; current = null; timeScale = 1;
+  scene.remove(c.mesh);
+  if (GS.balls > 0) { GS.phase = 'READY'; refresh(); }
+  else endGame();
+}
+
+function endGame() {
+  GS.phase = 'RESULT';
+  const L = GS.lineSet.size, all = GS.fallen.every(Boolean);
+  const pz = all ? PRIZES[4] : L >= 3 ? PRIZES[3] : L === 2 ? PRIZES[2] : L === 1 ? PRIZES[1] : PRIZES[0];
+  GS.coin += pz.coin; shelf[pz.id] = (shelf[pz.id] || 0) + 1; save('bbShelf', shelf);
+  if (L) SND.win();
+  setTimeout(() => {
+    big(`${pz.e} ${pz.n}`, `${L} 條線　＋${pz.coin} 代幣`, 2800);
+    if (!all) talk('end', 2800);
+    setTimeout(() => { GS.phase = 'IDLE'; refresh(); }, 1500);
+  }, 600);
+  refresh();
+}
+
+/* =========================================================
+ * 7) 滑動瞄準（虛線只供參考）
+ * ========================================================= */
+const PV_N = 30;
+const pvGeo = new THREE.BufferGeometry(); pvGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(PV_N * 3), 3));
+const preview = new THREE.Points(pvGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.14, transparent: true, opacity: 0.85, depthWrite: false }));
+preview.visible = false; preview.frustumCulled = false; scene.add(preview);
+const aimRing = new THREE.Mesh(new THREE.RingGeometry(0.93, 1.0, 40), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.75, side: THREE.DoubleSide, depthWrite: false }));
+aimRing.visible = false; scene.add(aimRing);
+const aimDot = new THREE.Mesh(new THREE.CircleGeometry(0.07, 14), new THREE.MeshBasicMaterial({ color: 0xffe14d, side: THREE.DoubleSide, depthWrite: false }));
+aimDot.visible = false; scene.add(aimDot);
+
+let drag = null;
+function aimFrom(e) {
+  const W = window.innerWidth, H = window.innerHeight;
+  const dy = Math.max(0, drag.y0 - e.clientY), dx = e.clientX - drag.x0;
+  const k = Math.min(1.1, dy / (H * 0.4));
+  return { tx: Math.max(-3.4, Math.min(3.4, dx / (W * 0.33) * 3.2)), ty: 0.9 + k * 4.9, ok: dy > 22 };
+}
+function showPreview(a) {
+  const L = launchFor(V_HOLD, a.tx, a.ty), arr = pvGeo.attributes.position.array;
+  let x = ORIGIN.x, y = ORIGIN.y, z = ORIGIN.z, vx = L.vx, vy = L.vy, vz = L.vz, n = 0;
+  const T = Math.abs((ZB - ORIGIN.z) / vz), dt = T / (PV_N - 1);
+  for (let i = 0; i < PV_N; i++) { arr[i * 3] = x; arr[i * 3 + 1] = y; arr[i * 3 + 2] = z; vy -= G_ACC * dt; x += vx * dt; y += vy * dt; z += vz * dt; }
+  pvGeo.attributes.position.needsUpdate = true; preview.visible = true;
+  const r = sigmaOf(V_HOLD) * 1.2;
+  aimRing.position.set(a.tx, a.ty, ZB + 0.32); aimRing.scale.set(r, r, 1); aimRing.visible = true;
+  aimDot.position.set(a.tx, a.ty, ZB + 0.33); aimDot.visible = true;
+}
+function hidePreview() { preview.visible = false; aimRing.visible = false; aimDot.visible = false; }
+
+renderer.domElement.addEventListener('pointerdown', e => {
+  SND.init();
+  if (GS.phase !== 'READY' || !e.isPrimary) return;
+  drag = { x0: e.clientX, y0: e.clientY, s: [{ t: performance.now(), x: e.clientX, y: e.clientY }] };
+});
+window.addEventListener('pointermove', e => {
+  if (!drag) return;
+  drag.s.push({ t: performance.now(), x: e.clientX, y: e.clientY }); if (drag.s.length > 24) drag.s.shift();
+  const a = aimFrom(e); if (a.ok) showPreview(a); else hidePreview();
+});
+function release(e) {
+  if (!drag) return;
+  const a = aimFrom(e), s = drag.s, now = performance.now(); drag = null; hidePreview();
+  if (!a.ok) return;
+  // 最後 110ms 的向上速度
+  let v = V_HOLD;
+  const recent = s.filter(p => now - p.t < 110);
+  if (recent.length >= 2) {
+    const f = recent[0], l = recent[recent.length - 1], dt = Math.max(16, l.t - f.t), up = (f.y - l.y) / dt;
+    if (f.y - l.y > 14) v = V_MIN + Math.max(0, Math.min(1, (up - 0.5) / 2.0)) * (V_MAX - V_MIN);
+  }
+  throwBall(a.tx, a.ty, v);
+}
+window.addEventListener('pointerup', release);
+window.addEventListener('pointercancel', () => { drag = null; hidePreview(); });
+
+$('btn-buy').onclick = buy;
+$('btn-sound').onclick = () => { SND.setOn(!SND.on); $('btn-sound').textContent = SND.on ? '🔊' : '🔇'; };
+$('btn-rule').onclick = () => { $('m-rule').style.display = 'flex'; };
+$('btn-shelf').onclick = () => {
+  $('shelf').innerHTML = PRIZES.map(p => {
+    const n = shelf[p.id] || 0;
+    return n ? `<div class="card ${p.top ? 'top' : ''}"><div class="e">${p.e}</div><div class="n">${p.n}</div><div class="c">× ${n}</div></div>`
+             : `<div class="card lock"><div class="e">❓</div><div class="n">${p.need}</div><div class="c">未獲得</div></div>`;
+  }).join('');
+  $('ui-best').textContent = bestKmh;
+  $('m-shelf').style.display = 'flex';
+};
+document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => b.closest('.modal').style.display = 'none');
+
+/* =========================================================
+ * 8) 兩個視角
+ * ========================================================= */
+const TOPY = CY + FRAME_HY + 1.8;
+const VIEWS = [
+  { name: '正面', el: 0.30, box: new THREE.Box3(new THREE.Vector3(-3.9, 0, NETZ), new THREE.Vector3(3.9, TOPY, 5.8)) },
+  { name: '俯視', el: 0.95, box: new THREE.Box3(new THREE.Vector3(-3.1, 0, NETZ), new THREE.Vector3(3.1, TOPY - 0.4, 5.4)) }
+];
+let viewIdx = 0;
+const camCur = { pos: new THREE.Vector3(), tgt: new THREE.Vector3() }, camGoal = { pos: new THREE.Vector3(), tgt: new THREE.Vector3() };
+function solveView(v) {
+  const h = Math.max(1, window.innerHeight);
+  const topPx = $('topbar').offsetHeight * 0.6, botPx = $('botbar').offsetHeight * 0.85;
+  const yMax = 1 - 2 * topPx / h, yMin = -1 + 2 * botPx / h;
+  const b = v.box, corners = [];
+  for (let i = 0; i < 8; i++) corners.push(new THREE.Vector3(i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z));
+  const dir = new THREE.Vector3(0, Math.sin(v.el), Math.cos(v.el));
+  const target = b.getCenter(new THREE.Vector3());
+  const place = d => { camera.position.copy(target).addScaledVector(dir, d); camera.lookAt(target); camera.updateMatrixWorld(); };
+  const range = () => { let a = 9, bb = -9, c = 9, d = -9; corners.forEach(p => { const q = p.clone().project(camera); a = Math.min(a, q.x); bb = Math.max(bb, q.x); c = Math.min(c, q.y); d = Math.max(d, q.y); }); return { x0: a, x1: bb, y0: c, y1: d }; };
+  let dist = 30;
+  for (let pass = 0; pass < 3; pass++) {
+    let lo = 3, hi = 250;
+    for (let k = 0; k < 40; k++) { const mid = (lo + hi) / 2; place(mid); const r = range(); if (r.x0 >= -0.99 && r.x1 <= 0.99 && r.y1 - r.y0 <= yMax - yMin) hi = mid; else lo = mid; }
+    place(hi); dist = hi;
+    const r = range(), shift = (r.y0 + r.y1) / 2 - (yMin + yMax) / 2;
+    const up = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
+    target.addScaledVector(up, shift * hi * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
+  }
+  return { pos: target.clone().addScaledVector(dir, dist), tgt: target };
+}
+function setView(i, instant) {
+  viewIdx = i; $('ui-view').textContent = VIEWS[i].name;
+  const s = solveView(VIEWS[i]); camGoal.pos.copy(s.pos); camGoal.tgt.copy(s.tgt);
+  if (instant) { camCur.pos.copy(s.pos); camCur.tgt.copy(s.tgt); }
+}
+$('btn-view').onclick = () => setView((viewIdx + 1) % VIEWS.length);
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / Math.max(1, window.innerHeight); camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight); setView(viewIdx, true);
+});
+
+/* =========================================================
+ * 9) 主迴圈
+ * ========================================================= */
+const clock = new THREE.Clock();
+function loop() {
+  requestAnimationFrame(loop);
+  const dtReal = Math.min(clock.getDelta(), 0.05), now = performance.now() / 1000;
+  if (current && !current.res) { const q = current.B; timeScale = (!q.passed && q.z < ZB + 2.6 && q.z > ZB && q.y > TABLE_TOP - 0.2) ? 0.45 : 1; } else if (!current) timeScale = 1;
+  const dt = dtReal * timeScale;
+
+  if (current) {
+    const c = current, B = c.B;
+    const ev = ballStep(B, dt);
+    if (!B.passed && B.z < ZB + 2.6 && B.z > ZB && B.y > TABLE_TOP - 0.2) timeScale = 0.45;       // 快打到板子時慢動作
+    if (ev && !c.res) {
+      if (ev.ev === 'plane') resolveBall(judge(GS.fallen, ev.x, ev.y, c.v), B, ev);
+      else if (ev.ev === 'table') resolveBall({ kind: 'table' }, B, ev);
+      else if (ev.ev === 'rest') resolveBall({ kind: 'short' }, B, ev);
+    }
+    c.mesh.position.set(B.x, B.y, B.z);
+    c.mesh.rotation.x += c.spin.x * dt; c.mesh.rotation.y += c.spin.y * dt; c.mesh.rotation.z += c.spin.z * dt;
+    if (c.res) {
+      c.tRes += dtReal;
+      if (c.tRes > 1.25 || (B.state === 'rest' && c.tRes > 0.5)) finishBall();
+    } else if (!c.res && B.state === 'rest') resolveBall({ kind: 'short' }, B);
+  }
+  // 球飛出很久還沒結果（保險）
+  if (current && !current.res) { current.age = (current.age || 0) + dtReal; if (current.age > 6) resolveBall({ kind: 'short' }, current.B); }
+
+  // 板子動畫
+  const tings = tingCells();
+  plates.forEach((p, i) => {
+    if (p.anim === 'fall') {
+      p.t += dtReal / 0.55; const t = Math.min(1, p.t);
+      p.rot = -1.52 * (1 - Math.pow(1 - t, 3)) - Math.sin(t * Math.PI) * 0.08;
+      p.pivot.rotation.x = p.rot; if (t >= 1) { p.anim = null; p.rot = -1.52; p.pivot.rotation.x = p.rot; }
+    } else if (p.anim === 'rise') {
+      p.t += dtReal / 0.5; const t = Math.min(1, p.t);
+      p.rot = p.from * (1 - (1 - Math.pow(1 - t, 2))); p.pivot.rotation.x = p.rot; if (t >= 1) { p.anim = null; p.rot = 0; p.pivot.rotation.x = 0; }
+    } else if (p.anim === 'wobble') {
+      p.t += dtReal; const a = Math.exp(-p.t * 4) * Math.sin(p.t * 26) * 0.16;
+      p.pivot.rotation.x = -Math.abs(a) * 1.0; if (p.t > 1) { p.anim = null; p.pivot.rotation.x = 0; }
+    }
+    const flash = tings.has(i) && !GS.fallen[i] && GS.phase !== 'IDLE' && GS.phase !== 'RESULT';
+    p.faceMat.emissive.setHex(flash && Math.sin(now * 9) > 0 ? 0xcc1100 : 0x000000);
+  });
+  lineBars.forEach(b => { if (b.visible) b.material.opacity = 0.55 + 0.25 * Math.sin(now * 6); });
+
+  // 觀眾
+  cheerT = Math.max(0, cheerT - dtReal);
+  people.forEach(p => {
+    const up = cheerT > 0;
+    const target = up ? Math.PI - 0.45 : 0.15 + Math.sin(now * 1.2 + p.ph) * 0.05;
+    p.arms[0].rotation.z += (target - p.arms[0].rotation.z) * Math.min(1, dtReal * 12);
+    p.arms[1].rotation.z += (-target - p.arms[1].rotation.z) * Math.min(1, dtReal * 12);
+    const jump = up ? Math.abs(Math.sin(now * 9 + p.ph)) * 0.22 * (0.6 + cheerLv * 0.3) : 0;
+    p.g.position.y += (p.base + jump - p.g.position.y) * Math.min(1, dtReal * 16);
+  });
+  lightBulbs.forEach(b => { b.sp.material.opacity = 0.7 + 0.3 * Math.sin(now * 3 + b.ph); });
+
+  const k = Math.min(1, dtReal * 4);
+  camCur.pos.lerp(camGoal.pos, k); camCur.tgt.lerp(camGoal.tgt, k);
+  camera.position.copy(camCur.pos); camera.lookAt(camCur.tgt);
+  renderer.render(scene, camera);
+}
+
+buildBooth();
+drawLED(0, bestKmh);
+setView(0, true);
+refresh();
+loop();
+setTimeout(() => talk('welcome', 2800), 600);
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { drawLED(lastKmh, bestKmh); setView(viewIdx, true); });
+})();
+</script>
+</body>
+</html>
